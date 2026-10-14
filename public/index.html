@@ -1,0 +1,702 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Website Speed Check — Live Demo</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --card: #1a1d24;
+    --border: #2a2e37;
+    --text: #e8e9ec;
+    --muted: #9aa1ad;
+    --accent: #4f8cff;
+    --good: #2fb86e;
+    --warn: #f2a93c;
+    --bad: #f0554f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  h1 { font-size: 2rem; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 32px; font-size: 1.05rem; }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+
+  .input-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  input[type="text"] {
+    flex: 1;
+    min-width: 220px;
+    background: #10131a;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 14px 16px;
+    border-radius: 10px;
+    font-size: 1rem;
+  }
+  input[type="text"]:focus { outline: 2px solid var(--accent); }
+
+  .toggle {
+    display: flex;
+    background: #10131a;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px;
+  }
+  .toggle button {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    padding: 10px 16px;
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 0.95rem;
+  }
+  .toggle button.active { background: var(--accent); color: white; }
+
+  button.run {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 14px 24px;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.run:disabled { opacity: 0.6; cursor: wait; }
+
+  .status { margin-top: 14px; color: var(--muted); font-size: 0.95rem; min-height: 1.2em; }
+  .status.error { color: var(--bad); }
+  .status:empty { display: none; }
+
+  .loading { margin-top: 18px; }
+  .loading-top { display: flex; align-items: center; gap: 14px; }
+  .spinner {
+    width: 28px;
+    height: 28px;
+    flex: none;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-step { font-weight: 600; font-size: 1rem; }
+  .loading-meta { color: var(--muted); font-size: 0.85rem; margin-top: 2px; }
+  .progress {
+    margin-top: 14px;
+    height: 6px;
+    background: #10131a;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%;
+    width: 0;
+    background: var(--accent);
+    border-radius: 999px;
+    transition: width 0.5s ease;
+  }
+  .steps { list-style: none; margin: 14px 0 0; padding: 0; font-size: 0.88rem; }
+  .steps li { padding: 3px 0; color: var(--muted); }
+  .steps li::before { content: "○ "; }
+  .steps li.done { color: var(--good); }
+  .steps li.done::before { content: "✓ "; }
+  .steps li.active { color: var(--text); font-weight: 600; }
+  .steps li.active::before { content: "● "; color: var(--accent); }
+  @media (prefers-reduced-motion: reduce) {
+    .spinner { animation-duration: 3s; }
+    .progress-bar { transition: none; }
+  }
+  button.run:disabled { opacity: 0.7; }
+
+  .results { display: none; }
+  .results.show { display: block; }
+
+  .final-url { color: var(--muted); font-size: 0.9rem; margin-bottom: 18px; word-break: break-all; }
+
+  .scores {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .score-card {
+    background: #10131a;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    text-align: center;
+  }
+  .score-num { font-size: 2.2rem; font-weight: 700; }
+  .score-title { color: var(--muted); font-size: 0.85rem; margin-top: 4px; text-transform: capitalize; }
+  .score-good .score-num { color: var(--good); }
+  .score-warn .score-num { color: var(--warn); }
+  .score-bad .score-num { color: var(--bad); }
+
+  .field-badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 20px;
+  }
+  .field-FAST { background: rgba(47,184,110,0.15); color: var(--good); }
+  .field-AVERAGE { background: rgba(242,169,60,0.15); color: var(--warn); }
+  .field-SLOW { background: rgba(240,85,79,0.15); color: var(--bad); }
+
+  .opps h3 { font-size: 1rem; margin: 0 0 10px; color: var(--text); }
+  .opp-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.95rem;
+  }
+  .opp-item:last-child { border-bottom: none; }
+  .opp-savings { color: var(--warn); white-space: nowrap; font-weight: 600; }
+
+  .raw-toggle {
+    margin-top: 20px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 10px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  .red-fixes-box {
+    margin-top: 24px;
+    background: rgba(240, 85, 79, 0.08);
+    border: 1px solid rgba(240, 85, 79, 0.3);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .red-fixes-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--bad);
+    margin-bottom: 14px;
+  }
+  .red-fix-card {
+    background: #10131a;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+  }
+  .red-fix-card:last-child { margin-bottom: 0; }
+  .red-fix-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text);
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .red-fix-desc {
+    color: var(--muted);
+    font-size: 0.88rem;
+    margin-bottom: 8px;
+    line-height: 1.4;
+  }
+  .fix-list {
+    margin: 6px 0 0 18px;
+    padding: 0;
+    color: var(--text);
+    font-size: 0.88rem;
+  }
+  .fix-list li { margin-bottom: 4px; }
+
+  .opp-row { padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .opp-row:last-child { border-bottom: none; }
+  .opp-row .opp-item { padding: 0; border-bottom: none; }
+  .explain {
+    color: var(--muted);
+    font-size: 0.86rem;
+    line-height: 1.5;
+    margin-top: 4px;
+  }
+  .explain::before { content: "💡 In plain English: "; color: var(--text); font-weight: 600; }
+  .cat-explain {
+    color: var(--muted);
+    font-size: 0.88rem;
+    line-height: 1.5;
+    margin-bottom: 10px;
+  }
+  .fix-list li { margin-bottom: 10px; }
+
+  .section { margin-bottom: 24px; }
+  .section h3 { font-size: 1.05rem; margin: 0 0 4px; }
+  .section-sub { color: var(--muted); font-size: 0.85rem; margin: 0 0 12px; }
+  .dead-box {
+    background: rgba(242, 169, 60, 0.07);
+    border: 1px solid rgba(242, 169, 60, 0.3);
+    border-radius: 12px;
+    padding: 18px;
+  }
+  .symptoms {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 10px;
+  }
+  .symptom {
+    background: #10131a;
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .symptom.score-good { border-left-color: var(--good); }
+  .symptom.score-warn { border-left-color: var(--warn); }
+  .symptom.score-bad { border-left-color: var(--bad); }
+  .symptom-top { display: flex; justify-content: space-between; gap: 8px; font-size: 0.9rem; font-weight: 600; }
+  .symptom.score-good .symptom-value { color: var(--good); }
+  .symptom.score-warn .symptom-value { color: var(--warn); }
+  .symptom.score-bad .symptom-value { color: var(--bad); }
+  .symptom-explain { color: var(--muted); font-size: 0.82rem; line-height: 1.4; margin-top: 4px; }
+  .fix-card {
+    background: #10131a;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+  .fix-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+  .fix-title { font-weight: 600; font-size: 0.95rem; }
+  .fix-rank { color: var(--accent); margin-right: 6px; }
+  .fix-badge { color: var(--warn); font-weight: 600; font-size: 0.85rem; white-space: nowrap; text-align: right; }
+  .fix-cat { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  .where { margin: 8px 0 0; padding: 0; list-style: none; font-size: 0.82rem; }
+  .where li { padding: 3px 0; color: var(--muted); }
+  .where code {
+    color: #8fb6ff;
+    font-family: Consolas, Monaco, monospace;
+    word-break: break-all;
+  }
+  .where-label { color: var(--text); font-weight: 600; font-size: 0.8rem; margin-top: 8px; }
+
+  .copy-btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .copy-btn.copied { background: var(--good); }
+
+  .json-window {
+    margin-bottom: 24px;
+    background: #0a0c10;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .json-window-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    font-size: 0.95rem;
+    color: var(--text);
+    font-weight: 600;
+  }
+  pre.raw {
+    display: block;
+    background: #06080b;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin: 0;
+    max-height: 400px;
+    overflow: auto;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    color: #8fb6ff;
+    font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
+  }
+
+  footer { color: var(--muted); font-size: 0.85rem; text-align: center; margin-top: 10px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Website Speed Check</h1>
+    <p class="sub">Type a URL. This calls the real Google PageSpeed Insights API, using a key stored in <code>.env</code> — the key never touches your browser.</p>
+
+    <div class="panel">
+      <div class="input-row">
+        <input type="text" id="urlInput" placeholder="e.g. store.google.com" value="store.google.com" />
+        <div class="toggle" id="strategyToggle">
+          <button data-strategy="mobile" class="active">Mobile</button>
+          <button data-strategy="desktop">Desktop</button>
+        </div>
+        <button class="run" id="runBtn">Check Site</button>
+      </div>
+      <div class="status" id="status"></div>
+
+      <div class="loading" id="loading" hidden aria-live="polite">
+        <div class="loading-top">
+          <div class="spinner" aria-hidden="true"></div>
+          <div class="loading-text">
+            <div class="loading-step" id="loadingStep">Contacting Google…</div>
+            <div class="loading-meta"><span id="loadingSite"></span> · <span id="loadingTime">0s</span> elapsed · usually 15–30s</div>
+          </div>
+        </div>
+        <div class="progress" aria-hidden="true"><div class="progress-bar" id="progressBar"></div></div>
+        <ol class="steps" id="loadingSteps"></ol>
+      </div>
+    </div>
+
+    <div class="panel results" id="results">
+      <div class="final-url" id="finalUrl"></div>
+      <div id="fieldBadgeWrap"></div>
+      <div class="scores" id="scores"></div>
+
+      <div class="json-window">
+        <div class="json-window-header">
+          <span>📄 Original Raw API Response (JSON)</span>
+          <button class="copy-btn" id="copyJsonBtn" type="button">📋 Copy JSON</button>
+        </div>
+        <pre class="raw" id="rawJson"></pre>
+      </div>
+
+      <div class="section" id="symptomsWrap" style="display:none;">
+        <h3>🩺 What visitors experience</h3>
+        <p class="section-sub">These are measurements (symptoms), not fixes. The fixes below are what improve them.</p>
+        <div class="symptoms" id="symptoms"></div>
+      </div>
+
+      <div class="section dead-box" id="deadWrap" style="display:none;">
+        <h3>🪦 Dead &amp; outdated code — easiest wins</h3>
+        <p class="section-sub">Spotted by recognising what the page loads. Google's report doesn't flag these.</p>
+        <div id="deadCode"></div>
+      </div>
+
+      <div class="section" id="speedWrap" style="display:none;">
+        <h3>🚀 Speed fixes, biggest time saving first</h3>
+        <p class="section-sub">Savings are Google's estimates and overlap, so they don't simply add up.</p>
+        <div id="speedFixes"></div>
+      </div>
+
+      <div class="section" id="otherWrap" style="display:none;">
+        <h3>🧩 Other fixes (accessibility &amp; quality)</h3>
+        <div id="otherFixes"></div>
+      </div>
+
+      <div class="red-fixes-box" id="redFixesWrap" style="display:none;">
+        <div class="red-fixes-header">
+          <span>📚 General tips for categories scoring under 50</span>
+        </div>
+        <div id="redFixesContent"></div>
+      </div>
+    </div>
+
+    <footer>Powered by the Google PageSpeed Insights API — this is the "hard way." Next: watch an AI agent just answer this in plain English.</footer>
+  </div>
+
+<script>
+  const urlInput = document.getElementById('urlInput');
+  const runBtn = document.getElementById('runBtn');
+  const statusEl = document.getElementById('status');
+  const resultsEl = document.getElementById('results');
+  const finalUrlEl = document.getElementById('finalUrl');
+  const scoresEl = document.getElementById('scores');
+  const fieldBadgeWrap = document.getElementById('fieldBadgeWrap');
+  const symptomsWrap = document.getElementById('symptomsWrap');
+  const symptomsEl = document.getElementById('symptoms');
+  const deadWrap = document.getElementById('deadWrap');
+  const deadEl = document.getElementById('deadCode');
+  const speedWrap = document.getElementById('speedWrap');
+  const speedEl = document.getElementById('speedFixes');
+  const otherWrap = document.getElementById('otherWrap');
+  const otherEl = document.getElementById('otherFixes');
+  const redFixesWrap = document.getElementById('redFixesWrap');
+  const redFixesContent = document.getElementById('redFixesContent');
+  const rawJson = document.getElementById('rawJson');
+  const strategyToggle = document.getElementById('strategyToggle');
+
+  let strategy = 'mobile';
+
+  strategyToggle.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-strategy]');
+    if (!btn) return;
+    strategy = btn.dataset.strategy;
+    [...strategyToggle.children].forEach((b) => b.classList.toggle('active', b === btn));
+  });
+
+  function esc(str) {
+    const div = document.createElement('div');
+    div.textContent = str == null ? '' : String(str);
+    return div.innerHTML;
+  }
+
+  const copyJsonBtn = document.getElementById('copyJsonBtn');
+  copyJsonBtn.addEventListener('click', async () => {
+    const text = rawJson.textContent;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Fallback for browsers that block the clipboard API
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+    copyJsonBtn.textContent = '✅ Copied!';
+    copyJsonBtn.classList.add('copied');
+    setTimeout(() => {
+      copyJsonBtn.textContent = '📋 Copy JSON';
+      copyJsonBtn.classList.remove('copied');
+    }, 2000);
+  });
+
+  // "Where to look": the files or page elements behind a fix
+  function whereList(items, more = 0) {
+    if (!items || !items.length) return '';
+    const rows = items
+      .map((w) => `<li><code>${esc(w.label)}</code>${w.note ? ` — ${esc(w.note)}` : ''}</li>`)
+      .join('');
+    const extra = more ? `<li>…and ${more} more</li>` : '';
+    return `<div class="where-label">Where:</div><ul class="where">${rows}${extra}</ul>`;
+  }
+
+  function scoreClass(score) {
+    if (score === null) return '';
+    if (score >= 90) return 'score-good';
+    if (score >= 50) return 'score-warn';
+    return 'score-bad';
+  }
+
+  function render(data) {
+    finalUrlEl.textContent = data.finalUrl;
+
+    fieldBadgeWrap.innerHTML = '';
+    if (data.fieldCategory) {
+      const badge = document.createElement('span');
+      badge.className = `field-badge field-${data.fieldCategory}`;
+      badge.textContent = `Real-world user experience: ${data.fieldCategory}`;
+      fieldBadgeWrap.appendChild(badge);
+    }
+
+    scoresEl.innerHTML = '';
+    data.scores.forEach((s) => {
+      const card = document.createElement('div');
+      card.className = `score-card ${scoreClass(s.score)}`;
+      card.innerHTML = `<div class="score-num">${s.score === null ? '—' : s.score}</div><div class="score-title">${s.title}</div>`;
+      scoresEl.appendChild(card);
+    });
+
+    // Symptoms: what visitors feel
+    symptomsEl.innerHTML = (data.symptoms || [])
+      .map((s) => `
+        <div class="symptom ${scoreClass(s.score)}">
+          <div class="symptom-top"><span>${esc(s.title)}</span><span class="symptom-value">${esc(s.value)}</span></div>
+          <div class="symptom-explain">${esc(s.explain)}</div>
+        </div>`)
+      .join('');
+    symptomsWrap.style.display = data.symptoms && data.symptoms.length ? 'block' : 'none';
+
+    // Dead & outdated code
+    deadEl.innerHTML = (data.deadCode || [])
+      .map((d) => {
+        const cost = [d.blockMs ? `blocks the page ${(d.blockMs / 1000).toFixed(1)} s` : '', d.kb ? `${d.kb} KB` : '']
+          .filter(Boolean).join(' · ');
+        return `
+        <div class="fix-card">
+          <div class="fix-head">
+            <span class="fix-title">${d.outdated ? '⚠️' : '🗑️'} ${esc(d.name)}</span>
+            <span class="fix-badge">${esc(cost)}</span>
+          </div>
+          <div class="explain">${esc(d.why)}</div>
+          ${whereList(d.files.map((f) => ({ label: f })))}
+        </div>`;
+      })
+      .join('');
+    deadWrap.style.display = data.deadCode && data.deadCode.length ? 'block' : 'none';
+
+    // Speed fixes, ranked
+    speedEl.innerHTML = (data.speedFixes || [])
+      .map((f, i) => {
+        const badge = [f.savingsMs ? `~${(f.savingsMs / 1000).toFixed(1)} s faster` : '', f.savingsKB ? `${f.savingsKB} KB smaller` : '']
+          .filter(Boolean).join('<br>');
+        return `
+        <div class="fix-card">
+          <div class="fix-head">
+            <span class="fix-title"><span class="fix-rank">#${i + 1}</span>${esc(f.title)}</span>
+            <span class="fix-badge">${badge}</span>
+          </div>
+          <div class="explain">${esc(f.explain)}</div>
+          ${whereList(f.where.top, f.where.more)}
+        </div>`;
+      })
+      .join('');
+    speedWrap.style.display = data.speedFixes && data.speedFixes.length ? 'block' : 'none';
+
+    // Pass/fail fixes
+    otherEl.innerHTML = (data.otherFixes || [])
+      .map((f) => `
+        <div class="fix-card">
+          <div class="fix-cat">${esc(f.category)}</div>
+          <div class="fix-title">${esc(f.title)}</div>
+          <div class="explain">${esc(f.explain)}</div>
+          ${whereList(f.where.top, f.where.more)}
+        </div>`)
+      .join('');
+    otherWrap.style.display = data.otherFixes && data.otherFixes.length ? 'block' : 'none';
+
+    // General tips for low-scoring categories
+    redFixesContent.innerHTML = '';
+    let hasRedItems = false;
+
+    if (data.categoryFixes && data.categoryFixes.length) {
+      hasRedItems = true;
+      data.categoryFixes.forEach((cf) => {
+        const card = document.createElement('div');
+        card.className = 'red-fix-card';
+        const listItems = cf.advice
+          .map((item) => `<li>${esc(item.tip)}<div class="explain">${esc(item.explain)}</div></li>`)
+          .join('');
+        card.innerHTML = `
+          <div class="red-fix-title">
+            <span>${esc(cf.category)} Category</span>
+            <span style="color: var(--bad);">${cf.score} / 100</span>
+          </div>
+          ${cf.explain ? `<div class="cat-explain"><strong>What this means:</strong> ${esc(cf.explain)}</div>` : ''}
+          <ul class="fix-list">${listItems}</ul>
+        `;
+        redFixesContent.appendChild(card);
+      });
+    }
+
+    if (hasRedItems) {
+      redFixesWrap.style.display = 'block';
+    } else {
+      redFixesWrap.style.display = 'none';
+    }
+
+    rawJson.textContent = JSON.stringify(data.raw, null, 2);
+    resultsEl.classList.add('show');
+  }
+
+  // Loading indicator. Google doesn't report progress, so the steps follow
+  // typical timings (in seconds) to show what is happening while we wait.
+  const loadingEl = document.getElementById('loading');
+  const loadingStepEl = document.getElementById('loadingStep');
+  const loadingSiteEl = document.getElementById('loadingSite');
+  const loadingTimeEl = document.getElementById('loadingTime');
+  const progressBar = document.getElementById('progressBar');
+  const loadingStepsEl = document.getElementById('loadingSteps');
+  let loadingTimer = null;
+
+  function startLoading(url) {
+    const device = strategy === 'desktop' ? 'desktop computer' : 'phone';
+    const steps = [
+      { at: 0, text: 'Contacting Google PageSpeed Insights' },
+      { at: 2, text: `Google is opening the site on a simulated ${device}` },
+      { at: 6, text: 'Loading the page and timing every file' },
+      { at: 14, text: 'Checking accessibility, best practices and SEO' },
+      { at: 22, text: "Finishing Google's report" },
+    ];
+    loadingStepsEl.innerHTML = steps.map((s) => `<li>${esc(s.text)}</li>`).join('');
+    loadingSiteEl.textContent = url;
+    loadingEl.hidden = false;
+    runBtn.textContent = 'Checking…';
+
+    const start = Date.now();
+    const tick = () => {
+      const t = (Date.now() - start) / 1000;
+      const current = steps.reduce((idx, s, i) => (t >= s.at ? i : idx), 0);
+      [...loadingStepsEl.children].forEach((li, i) => {
+        li.className = i < current ? 'done' : i === current ? 'active' : '';
+      });
+      loadingStepEl.textContent =
+        t > 45 ? 'Taking longer than usual — big or slow sites can take up to a minute…' : steps[current].text + '…';
+      loadingTimeEl.textContent = `${Math.floor(t)}s`;
+      // Eases toward 95% so the bar keeps moving but never claims to be done early
+      progressBar.style.width = `${95 * (1 - Math.exp(-t / 14))}%`;
+    };
+    tick();
+    loadingTimer = setInterval(tick, 500);
+  }
+
+  function stopLoading() {
+    clearInterval(loadingTimer);
+    loadingEl.hidden = true;
+    progressBar.style.width = '0';
+    runBtn.textContent = 'Check Site';
+  }
+
+  async function runCheck() {
+    const url = urlInput.value.trim();
+    if (!url) {
+      statusEl.textContent = 'Type a website URL first.';
+      statusEl.classList.add('error');
+      return;
+    }
+    statusEl.classList.remove('error');
+    statusEl.textContent = '';
+    runBtn.disabled = true;
+    resultsEl.classList.remove('show');
+    startLoading(url);
+
+    try {
+      const res = await fetch(`/api/check?url=${encodeURIComponent(url)}&strategy=${strategy}`);
+      const data = await res.json();
+      if (!res.ok) {
+        statusEl.textContent = data.error || 'Something went wrong.';
+        statusEl.classList.add('error');
+      } else {
+        // The page and server must match; an old server process won't send these fields
+        statusEl.textContent = data.symptoms
+          ? ''
+          : '⚠️ The server is running older code. Stop it (Ctrl+C) and run "node server.js" again to see the full analysis.';
+        statusEl.classList.toggle('error', !data.symptoms);
+        render(data);
+      }
+    } catch (err) {
+      statusEl.textContent = 'Could not reach the server. Is it still running?';
+      statusEl.classList.add('error');
+    } finally {
+      stopLoading();
+      runBtn.disabled = false;
+    }
+  }
+
+  runBtn.addEventListener('click', runCheck);
+  urlInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') runCheck();
+  });
+</script>
+</body>
+</html>
